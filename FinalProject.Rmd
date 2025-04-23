@@ -1,0 +1,157 @@
+---
+title: "Final Project"
+author: "Mamata K C"
+date: "2025-04-23"
+output:
+  
+  html_document:
+    toc_float: TRUE
+  pdf_document:
+    toc: TRUE
+  md_document:
+    variant: gfm
+---
+# Biofilm Data Analysis
+
+## Data Manipulation
+```{r}
+#Loading all necessary libraries
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(ggpubr)
+
+# Reading excel files and sheets.
+BiofilmFile <- "Data/RawData/Biofilm.xlsx"
+sheet_names <- excel_sheets(BiofilmFile)
+
+# Initializing list
+combined_data <- list()
+
+# Reading and processing each sheets
+for (sheet in sheet_names) {
+  data1 <- read_excel(BiofilmFile, sheet = sheet, range = "B24:N31") %>%
+    slice(-1) %>%  # Removing row 25 (second row from all sheets because it doesnot include samples)
+    mutate(Sheet = sheet)
+  
+  combined_data[[sheet]] <- data1
+}
+
+# Combining all the sheets into a single data
+data2 <- bind_rows(combined_data)
+
+# Renaming the columns according to names of strains used in each columns
+colnames(data2)[1:13] <- c("Media","Control", "B3SN17-2", "IVIA53.87", "IVIA5901", "ESVL", "XF3348", "ALS6", "ALS17T10", "ALS10T14", "Dixon", 
+                                "M12", "M23")
+
+# Renaming the media columns according to different media used in different plates (sheets).
+data2$Media <- rep(c("PD3","25SAP", "50SAP", "75SAP"), each = 12)
+
+# Subtracting control from each strain column
+for (i in 3:13) {
+  data2[, i] <- data2[, i] - data2[, 2]
+}
+
+# Removing the control column (column 2)
+data3 <- data2[, -2]  
+
+# Pivoting the data to long format
+final_data <- data3 %>%
+  pivot_longer(
+    cols = -c(Media, Sheet),  
+    names_to = "Strain",
+    values_to = "Biofilm"
+  )
+
+
+final_data <- final_data %>%
+  mutate(Rep = rep(c(1, 2), each = 66, length.out = n())) #Adding a column representing replication based on number of plates
+final_data <- final_data[, -2] #Removing second column
+
+
+#Saving the manipulated and organized file for further analysis
+write.csv(final_data, "Data/CleanData/Biofilm.csv", row.names = FALSE)
+
+```
+
+
+## Data Analysis
+
+```{r}
+#loading necessary libraries
+library(tidyverse)
+library(ggpubr)
+library(ggplot2)
+library(nlme)
+library(emmeans)
+library(multcomp)
+library(multcompView)
+
+
+#Loading data and displaying first six rows.
+Data_Biofilm <- read.csv("Data/CleanData/Biofilm.csv", na.strings = "na")
+head(Data_Biofilm)
+
+#Setting categorical variables as factor.
+Data_Biofilm$Media = as.factor(Data_Biofilm$Media)
+Data_Biofilm$Strain = as.factor(Data_Biofilm$Strain)
+
+#Loading color blind palette
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# Creating a vector to loop over all the strains
+unique_strains <- unique(Data_Biofilm$Strain)
+
+# Creating a list to store all the plots
+plots <- list()
+
+# Loop through each strain
+for (strain_name in unique_strains) {
+  sub_data <- Data_Biofilm %>% filter(Strain == strain_name) #subsetting the data
+  sub_data <- sub_data %>% mutate(logBiofilm = log(Biofilm + 1)) #adding a column with log transformation of the data
+  cat("\n===== Analyzing Strain:", strain_name, "=====\n") #to display the name of strain while analyzing the data
+  sub_data$Media <- relevel(sub_data$Media, ref = "PD3")  # Setting reference
+  results <- lme(logBiofilm ~ Media, data = sub_data, random = ~1 | Rep) #fitting mixed effect model with Replication plate as random effect
+  print(summary(results))
+  print(intervals(results, which = "fixed"))
+  sub_data$Media <- factor(sub_data$Media, levels = c("PD3", "25SAP", "50SAP", "75SAP")) #changing the order of the treatments
+  lsmeans <- emmeans(results, ~Media) #estimate lsmeans of strain within media
+  
+  # Compact letter display (uses default comparison, no Tukey)
+  results_lsmeans <- cld(lsmeans, alpha = 0.05, Letters = letters,  sort = FALSE)
+  results_lsmeans_df <- as.data.frame(results_lsmeans)
+  
+  # Get y position for letter labels
+  summary_df <- sub_data %>%
+    group_by(Media) %>%
+    summarise(y_max = max(logBiofilm) + 0.1)
+  
+  label_df <- merge(summary_df, results_lsmeans_df, by.x = "Media", by.y = "Media")
+  
+  boxplot <- ggplot(data = sub_data, aes(x = Media, y = logBiofilm, fill = Media)) +  #defining aesthetics x as Media and y as logBiofilm
+    geom_boxplot(position = position_dodge(), outlier.shape = NA) + #creating box plot without overlap and removing outliers
+    geom_point(position = position_jitterdodge(dodge.width = 0.8), aes(fill=Media),alpha = 0.6, shape=21) + #filling the box plot with data points without overlap and setting transparency of the data points as 0.6 and shape to 21
+    scale_fill_manual(values = c(cbbPalette[[2]], cbbPalette[[3]],cbbPalette[[4]], cbbPalette[[7]])) + #setting fills of boxplot and data points manually
+    xlab("Media") + #labelling x axis
+    ylab("log(Biofilm+1)") + #labelling y axis
+    scale_y_continuous(limits = c(0,1.7)) +
+    theme_classic()+ #setting theme classic to make plain white background
+    ggtitle(paste(strain_name))+ #giving title to boxplot
+    geom_text(data = label_df, aes(x = Media, y = y_max, label = .group), vjust = 0)
+  
+  plots[[strain_name]] <- boxplot
+}
+
+# Combining all plots into one figure with a common legend
+combined_biofilm_plot <- ggarrange(plotlist = plots, ncol = 4, nrow = 3, labels = "AUTO", common.legend = TRUE, legend = "bottom")
+
+# Displaying the combined plot
+print(combined_biofilm_plot)
+
+#Saving the final figure
+ggsave("Figures/combined_biofilm_plot.png", plot = combined_biofilm_plot, width = 10, height = 8, dpi = 300)
+
+
+```
+
