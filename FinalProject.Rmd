@@ -246,11 +246,6 @@ library(tidyverse)
 library(stringr)
 library(ggpubr)
 library(ggplot2)
-library(nlme)
-library(emmeans)
-library(multcomp)
-library(multcompView)
-
 
 #Reading data to R and displaying first six rows
 datum = read.csv("Data/CleanData/GrowthData.csv", )
