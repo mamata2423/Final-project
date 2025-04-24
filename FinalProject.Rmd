@@ -4,12 +4,12 @@ author: "Mamata K C"
 date: "2025-04-23"
 output:
   
+  md_document:
+    variant: gfm
   html_document:
     toc_float: TRUE
   pdf_document:
     toc: TRUE
-  md_document:
-    variant: gfm
 ---
 # Biofilm Data Analysis
 
@@ -153,5 +153,161 @@ print(combined_biofilm_plot)
 ggsave("Figures/combined_biofilm_plot.png", plot = combined_biofilm_plot, width = 10, height = 8, dpi = 300)
 
 
+```
+
+# Growth Data Analysis
+
+## Data Manipulation
+
+```{r}
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(purrr)
+
+# Listing all Day files
+GrowthData <- list.files(path = "Data/RawData", pattern = "^Day[0-7]\\.xlsx$", full.names = TRUE)
+
+# Making a list of the all days data
+all_days_data <- list()
+
+# Looping through each file
+for (file_name in GrowthData) {
+  day_label <- tools::file_path_sans_ext(file_name)
+  sheet_names <- excel_sheets(file_name)
+  
+  combined_data <- list()
+  
+# Looping through each sheet in the file
+  for (sheet in sheet_names) {
+    Growth1 <- read_excel(file_name, sheet = sheet, range = "B24:N31") %>%
+      slice(-1) %>%  # Remove second row (Excel row 25)
+      mutate(Sheet = sheet)
+    
+    combined_data[[sheet]] <- Growth1
+  }
+  
+  # Combining all sheets into a single data
+  Growth2 <- bind_rows(combined_data)
+  
+  # Renaming the columns according to names of strains used in each columns
+  colnames(Growth2)[1:13] <- c("Media", "Control", "B3SN17-2", "IVIA53.87", "IVIA5901", "ESVL", 
+                                  "XF3348", "ALS6", "ALS17T10", "ALS10T14", "Dixon", "M12", "M23")
+  
+  # Renaming the media columns according to different media used in different plates (sheets).
+  Growth2$Media <- rep(c("PD3","25SAP", "50SAP", "75SAP"), each = 12)
+  
+  # Subtracting control from each strain column
+  for (i in 3:13) {
+    Growth2[, i] <- Growth2[, i] - Growth2[, 2]
+  }
+  
+  # Removing the control column (column 2)
+  Growth3 <- Growth2[, -2]
+  
+  # Pivoting the data to long format
+  final_data <- Growth3 %>%
+    pivot_longer(
+      cols = -c(Media, Sheet),
+      names_to = "Strain",
+      values_to = "OD600"
+    )
+  
+  # Adding a column representing replication based on number of plates
+  final_data <- final_data %>%
+    mutate(Rep = rep(c(1, 2), each = 66, length.out = n()))
+  
+  # Adding Day column 
+  final_data$Day <- day_label
+  
+  all_days_data[[day_label]] <- final_data
+}
+
+# Combining all the data into one dataframe
+all_data_combined <- bind_rows(all_days_data)
+
+#Replacing negative values with zero 
+all_data_combined$OD600[all_data_combined$OD600 < 0] <- 0
+
+#Removing column 2
+all_data_combined <- all_data_combined[ , -2]
+
+#Saving the manipulated and organized file to CSV for further analysis.
+write.csv(all_data_combined, "Data/CleanData/GrowthData.csv", row.names = FALSE)
+
+```
+
+## Growth Curves
+
+```{r}
+
+#loading necessary libraries
+library(tidyverse)
+library(stringr)
+library(ggpubr)
+library(ggplot2)
+library(nlme)
+library(emmeans)
+library(multcomp)
+library(multcompView)
+
+
+#Reading data to R and displaying first six rows
+datum = read.csv("Data/CleanData/GrowthData.csv", )
+head(datum)
+
+#Setting categorical variables as factor and log transforming the optical density values.
+GrowthData<- datum%>%
+  mutate(
+    Strain = factor(Strain),
+    Media = factor(Media),
+    Rep = factor(Rep),
+    Day = as.numeric(str_replace(Day, "Data/RawData/Day", "")),  # Converts "Day0" → 0
+    logOD = log(OD600 + 0.001)  # Log-transform while avoiding log(0)
+  )
+
+# Color palette
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# Setting desirable media colors.
+media_colors <- c("PD3" = "#E69F00", 
+                  "25SAP" = "#56B4E9", 
+                  "50SAP" = "#009E73", 
+                  "75SAP" = "#D55E00")
+
+
+# Calculating summary stats
+growth_summary <- GrowthData %>%
+  group_by(Strain, Media, Day) %>%
+  summarise(
+    mean_logOD600 = mean(logOD, na.rm = TRUE),
+    se_logOD600 = sd(logOD, na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  )
+
+# Ensuring correct media order and strain order
+growth_summary$Media <- factor(growth_summary$Media, levels = names(media_colors))
+growth_summary$Strain <- factor(growth_summary$Strain, levels = c("B3SN17-2", "IVIA53.87", "IVIA5901", "ESVL", "XF3348", "ALS6", "ALS17T10", "ALS10T14", "Dixon", "M12", "M23"))
+
+# Creating the faceted plot
+growth_curve_log <- ggplot(growth_summary, aes(x = Day, y = mean_logOD600, color = Media, group = Media)) +
+  geom_line(size = 1) +
+  geom_errorbar(aes(ymin = mean_logOD600 - se_logOD600, ymax = mean_logOD600+ se_logOD600), 
+                width = 0.2, size = 0.8) +
+  scale_color_manual(values = media_colors) +
+  facet_wrap(~ Strain, scales = "free_y") +
+  labs(title = "Bacterial Growth Curves",
+       x = "Days",
+       y = "log(OD600 + 0.001)",
+       color = "Media") +
+  theme_classic() +
+  theme(legend.position = "bottom")
+
+# Printing the plot
+print(growth_curve_log)
+
+
+#Saving the plot
+ggsave("Figures/GrowthCurves.png", plot = growth_curve_log, width = 10, height = 8, dpi = 300)
 ```
 
