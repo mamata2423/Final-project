@@ -6,10 +6,10 @@ output:
   
   md_document:
     variant: gfm
-  html_document:
-    toc_float: TRUE
   pdf_document:
     toc: TRUE
+  html_document:
+    toc_float: TRUE
 ---
 # Biofilm Data Analysis
 
@@ -79,7 +79,7 @@ write.csv(final_data, "Data/CleanData/Biofilm.csv", row.names = FALSE)
 ## Data Analysis
 
 ```{r}
-#loading necessary libraries
+# Loading necessary libraries
 library(tidyverse)
 library(ggpubr)
 library(ggplot2)
@@ -89,15 +89,15 @@ library(multcomp)
 library(multcompView)
 
 
-#Loading data and displaying first six rows.
+# Loading data and displaying first six rows.
 Data_Biofilm <- read.csv("Data/CleanData/Biofilm.csv", na.strings = "na")
 head(Data_Biofilm)
 
-#Setting categorical variables as factor.
+# Setting categorical variables as factor.
 Data_Biofilm$Media = as.factor(Data_Biofilm$Media)
 Data_Biofilm$Strain = as.factor(Data_Biofilm$Strain)
 
-#Loading color blind palette
+# Loading color blind palette
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 # Creating a vector to loop over all the strains
@@ -106,7 +106,7 @@ unique_strains <- unique(Data_Biofilm$Strain)
 # Creating a list to store all the plots
 plots <- list()
 
-# Loop through each strain
+# Creating a loop through each strain for analysis
 for (strain_name in unique_strains) {
   sub_data <- Data_Biofilm %>% filter(Strain == strain_name) #subsetting the data
   sub_data <- sub_data %>% mutate(logBiofilm = log(Biofilm + 1)) #adding a column with log transformation of the data
@@ -118,7 +118,7 @@ for (strain_name in unique_strains) {
   sub_data$Media <- factor(sub_data$Media, levels = c("PD3", "25SAP", "50SAP", "75SAP")) #changing the order of the treatments
   lsmeans <- emmeans(results, ~Media) #estimate lsmeans of strain within media
   
-  # Compact letter display (uses default comparison, no Tukey)
+  # Compact letter display
   results_lsmeans <- cld(lsmeans, alpha = 0.05, Letters = letters,  sort = FALSE)
   results_lsmeans_df <- as.data.frame(results_lsmeans)
   
@@ -129,18 +129,22 @@ for (strain_name in unique_strains) {
   
   label_df <- merge(summary_df, results_lsmeans_df, by.x = "Media", by.y = "Media")
   
+# Creating boxplots for each strain with media on x axis and logBiofilm values on y axis
   boxplot <- ggplot(data = sub_data, aes(x = Media, y = logBiofilm, fill = Media)) +  #defining aesthetics x as Media and y as logBiofilm
     geom_boxplot(position = position_dodge(), outlier.shape = NA) + #creating box plot without overlap and removing outliers
     geom_point(position = position_jitterdodge(dodge.width = 0.8), aes(fill=Media),alpha = 0.6, shape=21) + #filling the box plot with data points without overlap and setting transparency of the data points as 0.6 and shape to 21
     scale_fill_manual(values = c(cbbPalette[[2]], cbbPalette[[3]],cbbPalette[[4]], cbbPalette[[7]])) + #setting fills of boxplot and data points manually
     xlab("Media") + #labelling x axis
-    ylab("log(Biofilm+1)") + #labelling y axis
+    ylab("ln(Biofilm OD600)") + #labelling y axis
     scale_y_continuous(limits = c(0,1.7)) +
     theme_classic()+ #setting theme classic to make plain white background
     ggtitle(paste(strain_name))+ #giving title to boxplot
     geom_text(data = label_df, aes(x = Media, y = y_max, label = .group), vjust = 0)
   
   plots[[strain_name]] <- boxplot
+  
+   # Displaying plots
+  print(boxplot)
 }
 
 # Combining all plots into one figure with a common legend
@@ -306,3 +310,115 @@ print(growth_curve_log)
 ggsave("Figures/GrowthCurves.png", plot = growth_curve_log, width = 10, height = 8, dpi = 300)
 ```
 
+## Area under GrowthCurve
+
+```{r}
+# Loading required libraries
+library(MESS)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(stringr)
+library(nlme)
+library(emmeans)
+library(multcomp)
+library(multcompView)
+library(ggpubr)
+
+# Loading data in R
+GrowthData <- read.csv("Data/CleanData/GrowthData.csv")
+
+# Defining the desired order for strains and media
+strain_order <- c("B3SN17-2", "IVIA53.87", "IVIA5901", "ESVL", "XF3348", "ALS6", "ALS17T10", "ALS10T14", "Dixon", "M12", "M23")
+
+
+#Loading color blind palette
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+#Assigning the colors for different media
+media_colors <- c("PD3" = "#E69F00", 
+                  "25SAP" = "#56B4E9", 
+                  "50SAP" = "#009E73", 
+                  "75SAP" = "#D55E00")
+
+GrowthData <- GrowthData %>%
+  mutate(
+    Strain = factor(Strain, levels = strain_order),
+    Media = factor(Media),
+    Rep = factor(Rep),
+    Day = as.numeric(str_replace(Day, "Data/RawData/Day", ""))
+  )
+
+GrowthData_avg <- GrowthData %>%
+  group_by(Strain, Media, Rep, Day) %>%
+  summarize(OD600 = mean(OD600), .groups = "drop")
+AUCdata <- GrowthData_avg %>%
+  group_by(Strain, Media, Rep) %>%
+  summarize(AUC = auc(Day, OD600), .groups = "drop")
+
+
+# Creating a vector to loop over all the strains
+unique_strains <- unique(AUCdata$Strain)
+
+# Creating a list to store all the plots
+plots <- list()
+
+# Loop through each strain
+for (strain_name in unique_strains) {
+  cat("\n===== Analyzing Strain:", strain_name, "=====\n")
+  sub_data <- AUCdata %>%
+    filter(Strain == strain_name) %>% #subsetting data for each strain to run in a loop
+    mutate(Media = factor(Media, levels = c("PD3", "25SAP", "50SAP", "75SAP")))  #giving desired order of treatment (media)
+
+  # Running mixed effect model with Replication plate as a random effect
+  Result <- lme(AUC ~ Media, data = sub_data, random = ~1|Rep)
+  print(summary(Result))
+  
+  # Estimated marginal means
+  lsmeans <- emmeans(Result, ~Media)
+  
+  # Compact letter display
+  results_lsmeans <- cld(lsmeans, alpha = 0.05, Letters = letters, sort = FALSE)
+  results_lsmeans_df <- as.data.frame(results_lsmeans)
+  
+  # Calculating summary stats
+  summary_df <- sub_data %>%
+    group_by(Media) %>%
+    summarize(
+      mean_AUC = mean(AUC, na.rm = TRUE),
+      sd_AUC = sd(AUC, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Merging letters into summary
+  label_df <- merge(summary_df, results_lsmeans_df, by = "Media")
+  label_df$y_label <- label_df$mean_AUC + label_df$sd_AUC + 0.05  # position for letters
+  
+  # Making a Bar plot
+  Barplot <- ggplot(label_df, aes(x = Media, y = mean_AUC, fill = Media)) +
+    geom_bar(stat = "identity", color = "black", width = 0.7) +
+    geom_errorbar(aes(ymin = mean_AUC - sd_AUC, ymax = mean_AUC + sd_AUC),
+                  width = 0.2) +
+    geom_text(aes(y = y_label, label = .group), vjust = 0, size = 5) +
+    labs(title = paste("", strain_name),
+         x = "Media", y = "Area Under Curve") +
+    scale_fill_manual(values = media_colors) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # Saving plot to list
+  plots[[strain_name]] <- Barplot
+  
+  # Displaying plots
+  print(Barplot)
+}
+
+# Combining all plots into one figure with a common legend
+combined_AUC_plot <- ggarrange(plotlist = plots, ncol = 4, nrow = 3, labels = "AUTO", common.legend = TRUE, legend = "bottom")
+
+# Displaying the combined plot
+print(combined_AUC_plot)
+
+#Saving the final figure
+ggsave("Figures/combined_AUC_plot.png", plot = combined_AUC_plot, width = 10, height = 8, dpi = 300)
+```
