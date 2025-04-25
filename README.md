@@ -1,4 +1,7 @@
+# Final Project
 
+## DOI
+[![DOI](https://zenodo.org/badge/969865982.svg)](https://doi.org/10.5281/zenodo.15278537)
 
 # Growth and Biofilm Formation of *Xylella fastidiosa* Almond Strains in Grape Sap Amended Media
 This repository contains data, code, and results for the project analyzing the growth and biofilm formation of 11 different strains of *Xylella fastidiosa* isolated from Almonds under four different media. The primary goal of this study is to compare the phenotypic variation in growth and biofilm formation across strains and media, including media supplemented with grape sap, to gain insights into host adaptation and potential virulence of almond strains in grapevines.
