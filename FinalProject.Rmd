@@ -135,7 +135,7 @@ for (strain_name in unique_strains) {
     geom_point(position = position_jitterdodge(dodge.width = 0.8), aes(fill=Media),alpha = 0.6, shape=21) + #filling the box plot with data points without overlap and setting transparency of the data points as 0.6 and shape to 21
     scale_fill_manual(values = c(cbbPalette[[2]], cbbPalette[[3]],cbbPalette[[4]], cbbPalette[[7]])) + #setting fills of boxplot and data points manually
     xlab("Media") + #labelling x axis
-    ylab("ln(Biofilm OD600)") + #labelling y axis
+    ylab("log(Biofilm OD600)") + #labelling y axis
     scale_y_continuous(limits = c(0,1.7)) +
     theme_classic()+ #setting theme classic to make plain white background
     ggtitle(paste(strain_name))+ #giving title to boxplot
