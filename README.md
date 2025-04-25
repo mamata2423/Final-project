@@ -31,7 +31,7 @@ The study used four types of media to investigate the effect of grape sap on dif
     -	Area Under Curve (AUC) from growth curves
     -	Biofilm formation using the crystal violet assay.
 ## Results
--	[Figures](Figures) contains manuscript-ready figures, which include Growth curves, Area under Growth curves, and biofilm plots for all the strains combined within a single plot based on different media. 
+-	[Figures](Figures) contain manuscript-ready figures, which include Growth curves, Area under Growth curves, and biofilm plots for all the strains combined within a single plot based on different media. 
 - [figure-gfm](FinalProject_files/figure-gfm) includes figures for each strain during the analysis.
 -	[FinalProject.Rmd](FinalProject.Rmd) contains the complete code for the analysis.
 -	[FinalProject.md](FinalProject.md) is a markdown file that is favored by GitHub.
@@ -42,3 +42,64 @@ Raw OD600 data were cleaned by removing irrelevant rows, combining sheets in Exc
 
 -	**Growth Data Analysis:** 
 Raw data were processed similarly to above in the biofilm data, and OD600 values were log-transformed to visualize relative growth more effectively, and mean and standard errors were calculated by strain, media, and day. Line plots were used to visualize the growth curves. Furthermore, the area under the growth curve was also calculated, and a linear mixed effects model was fitted for each strain with media as a fixed effect and replicate as a random effect. Barplots were created comparing mean AUC values across media for each strain.
+
+## File Tree
+
+```r
+fs::dir_tree()
+```
+
+```
+├── Data                         #Includes all data
+│   ├── CleanData                #cleaned and processed data
+│   │   ├── Biofilm.csv          #cleaned and processed biofilm data
+│   │   └── GrowthData.csv       #cleaned and processed growth data
+│   └── RawData                  #raw data obtained directly from the plate reader
+│       ├── Biofilm.xlsx         #raw biofilm data
+│       ├── Day0.xlsx            #raw data from day 0 to day 7
+│       ├── Day1.xlsx
+│       ├── Day2.xlsx
+│       ├── Day3.xlsx
+│       ├── Day4.xlsx
+│       ├── Day5.xlsx
+│       ├── Day6.xlsx
+│       └── Day7.xlsx
+├── Figures                     #manuscript ready figures 
+│   ├── GrowthCurves.png        #growth curve figure for all strains combined
+│   ├── combined_AUC_plot.png   #Area under curve figure for all strains combined
+│   └── combined_biofilm_plot.png  #biofilm plots for all strains combined
+├── FinalProject.Rmd            #R Markdown file for analysis
+├── FinalProject.Rproj          #top level directory .Rproj file = working directory
+├── FinalProject.html           #html rendered file for analysis
+├── FinalProject.md             #GitHub formatted markdown
+├── FinalProject.pdf            #pdf document rendered file for analysis
+├── FinalProject_files  
+│   └── figure-gfm              #includes all the intermediate unnamed figures generated during analysis
+│       ├── unnamed-chunk-2-1.png
+│       ├── unnamed-chunk-2-10.png
+│       ├── unnamed-chunk-2-11.png
+│       ├── unnamed-chunk-2-12.png
+│       ├── unnamed-chunk-2-2.png
+│       ├── unnamed-chunk-2-3.png
+│       ├── unnamed-chunk-2-4.png
+│       ├── unnamed-chunk-2-5.png
+│       ├── unnamed-chunk-2-6.png
+│       ├── unnamed-chunk-2-7.png
+│       ├── unnamed-chunk-2-8.png
+│       ├── unnamed-chunk-2-9.png
+│       ├── unnamed-chunk-4-1.png
+│       ├── unnamed-chunk-5-1.png
+│       ├── unnamed-chunk-5-10.png
+│       ├── unnamed-chunk-5-11.png
+│       ├── unnamed-chunk-5-12.png
+│       ├── unnamed-chunk-5-2.png
+│       ├── unnamed-chunk-5-3.png
+│       ├── unnamed-chunk-5-4.png
+│       ├── unnamed-chunk-5-5.png
+│       ├── unnamed-chunk-5-6.png
+│       ├── unnamed-chunk-5-7.png
+│       ├── unnamed-chunk-5-8.png
+│       └── unnamed-chunk-5-9.png
+└── README.md                     #top level directory README
+```
+
