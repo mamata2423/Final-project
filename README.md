@@ -7,10 +7,12 @@ This repository contains data, code, and results for the project analyzing the g
 The folder contains Excel files with 96-well plate biofilm data measured on Day 7 and growth data from Day 0 to Day 7 in the Cytation 3 plate reader.
 Biofilm.xlsx: Biofilm quantification raw data (OD600).
 Day0.xlsx - Day7.xlsx: Growth raw data (OD600).
+- [Raw Data](Data/RawData)
 ### Clean Data: 
 The folder contains cleaned and processed .csv files of biofilm and growth data for statistical tests.
 Biofilm.csv: Final cleaned and processed biofilm data for analysis.
 GrowthData.csv: Final cleaned and processed growth data from Day 0 to Day 7 for analysis.
+- [Clean Data](Data/CleanData)
 ## Media Types
 The study used four types of media to investigate the effect of grape sap on different almond-derived strains of Xylella fastidiosa.
 -	PD3: Artificial media
